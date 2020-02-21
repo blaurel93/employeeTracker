@@ -19,7 +19,7 @@ var connection = mysql.createConnection({
 connection.connect(function (err) {
     if (err) throw err;
 
-    viewEmployees();
+    trackEmployee();
 
 });
 ////// START INQUIRER //////
@@ -30,18 +30,19 @@ function trackEmployee() {
             type: "list",
             message: "What would you like to do?",
             choices: [
-                "Add department",
+                "Add department? Add Employee? Add Role?",
                 "View departments",
                 "View employees",
+                "View roles",
+                "View all",
                 "Update employee",
-                "Add employee",
                 "exit"
             ]
         })
         .then(function (answer) {
             switch (answer.action) {
-                case "Add department":
-                    addDepartment();
+                case "Add department? Add Employee? Add Role?":
+                    addAll();
                     break;
 
                 case "View departments":
@@ -52,12 +53,16 @@ function trackEmployee() {
                     viewEmployees();
                     break;
 
-                case "Update employee":
-                    updateEmployee();
+                case "View roles":
+                    viewRoles();
                     break;
 
-                case "Add employee":
-                    addEmployee();
+                case "View all":
+                    viewAll();
+                    break;
+
+                case "Update employee":
+                    updateEmployee();
                     break;
 
                 case "exit":
@@ -69,33 +74,64 @@ function trackEmployee() {
 ////// ADD DEPARTMENTS //////
 function addDepartment() {
     inquirer
-        .prompt([{
-            name: "name",
-            type: "list",
-            message: "What type of building is it?",
-            choices: [
-                "Warehouse",
-                "Field",
-                "Office"
-            ]
-        }
-        ])
+        .prompt(
+            {
+                name: "first",
+                type: "input",
+                message: "Whats the name of the department?"
+            })
         .then(function (answer) {
             connection.query(
                 "INSERT INTO department SET ?",
                 {
-                    id: answer.id,
-                    name: answer.name
+                    name: answer.first
                 },
                 function (err) {
                     if (err) throw err;
-                    console.log(`You've added the ${answer.name} to the department!`);
+                    console.log("========================================================");
+                    console.log("--------------------------------------------------------");
+                    console.log(`You added ${answer.first} to the department!`);
                     // re-prompt the user for if they want to bid or post
                     trackEmployee();
                 }
             )
         })
 };
+function addAll() {
+    inquirer
+        .prompt({
+            name: "name",
+            type: "list",
+            message: "What would you like to add?",
+            choices: [
+                "Employee",
+                "Role",
+                "Department",
+                "exit"
+            ]
+        }
+        )
+        .then(function (answer) {
+
+            switch (answer.name) {
+                case "Employee":
+                    addEmployee();
+                    break;
+
+                case "Department":
+                    addDepartment();
+                    break;
+
+                case "Role":
+                    addRole();
+                    break;
+
+                case "exit":
+                    connection.end();
+                    break;
+            }
+        });
+}
 ////// VIEW DEPARTMENTS //////
 function viewDepartment() {
     var query = "SELECT * FROM department";
@@ -111,18 +147,62 @@ function viewEmployees() {
         trackEmployee();
     });
 }
-function viewAll() {
-    var query = "SELECT * FROM department JOIN employee JOIN role";
+function viewRoles() {
+    var query = "SELECT * FROM roleE";
     connection.query(query, function (err, res) {
         console.table(res);
         trackEmployee();
     });
 }
+function viewAll() {
+    var query = "SELECT employee.id, employee.first_name, employee.last_name, roleE.title, roleE.salary FROM employee INNER JOIN roleE ON employee.role_id=roleE.id";
+    connection.query(query, function (err, res) {
+        if (err) {
+            throw err;
+        }
+        console.table(res);
+        trackEmployee();
+    });
+}
+function addRole() {
+    inquirer
+        .prompt(
+            [{
+                name: "title",
+                type: "input",
+                message: "Whats their Title?"
+            },
+            {
+                name: "salary",
+                type: "input",
+                message: "Whats their salary?"
+            },
+            {
+                name: "departmentID",
+                type: "input",
+                message: "Whats their department?"
+            }
+            ])
+        .then(function (answer) {
+            connection.query(
+                "INSERT INTO roleE SET ?",
+                {
+                    title: answer.title,
+                    salary: answer.salary,
+                    department_id: answer.departmentID,
 
-//SELECT customer_id, cust_first_name, order_id, order_item_id, product_name
-//FROM demo_customers
-//INNER JOIN demo_orders on demo_orders.customer_id = demo_customers.customer_id
-//WHERE cust_state= 'VA'
+                },
+                function (err) {
+                    if (err) throw err;
+                    console.log("========================================================");
+                    console.log("--------------------------------------------------------");
+                    console.log(`You added ${answer.title} ${answer.salary} ${answer.departmentID} TO YOUR TABLE`);
+                    // re-prompt the user for if they want to bid or post
+                    trackEmployee();
+                }
+            )
+        })
+};
 ////// ADD EMPLOYEE //////
 function addEmployee() {
     inquirer
@@ -170,39 +250,55 @@ function addEmployee() {
         })
 };
 ////// UPDATE EMPLOYEE //////
+var choiceArray = []; /// employee
+var departmentArray = []; // department
+var roleArray = []; // role
 function updateEmployee() {
     connection.query("SELECT * FROM employee", function (err, results) {
         if (err) throw err;
         // once you have the items, prompt the user for which they'd like to bid on
+        // console.log(results);
         inquirer
             .prompt([
                 {
                     name: "choice",
-                    type: "rawlist",
+                    type: "list",
                     choices: function () {
-                        var choiceArray = [];
+
                         for (var i = 0; i < results.length; i++) {
-                            choiceArray.push(results[i].name);
+                            var fullName = `${results[i].first_name} ${results[i].last_name}`
+
+                            choiceArray.push(fullName);
+
                         }
+                        // console.log(choiceArray);
                         return choiceArray;
                     }
-                },
-                {
-                    name: "bid",
-                    type: "input",
-                    message: "How much would you like to bid?"
                 }
             ])
             .then(function (answer) {
-                // get the information of the chosen item
-                var chosenItem;
-                for (var i = 0; i < results.length; i++) {
-                    if (results[i].name === answer.choice) {
-                        chosenItem = results[i];
-                    }
-                }
+                console.log(answer);
+                inquirer
+                    .prompt({
+                        name: "choose",
+                        type: "list",
+                        message: "What would you like to update?",
+                        choices: [
+                            "Employee",
+                            "Role",
+                            "Department",
+                            "exit",
+                            function () {
+                                for (var i = 0; i < answer.length; i++) {
+                                    var fullName = `${answer[i].first_name} ${answer[i].last_name}`
 
-                // determine if bid was high enough
+                                    choiceArray.push(fullName);
+
+                                }
+                            }
+                        ]
+                    })
+
 
             });
     })
