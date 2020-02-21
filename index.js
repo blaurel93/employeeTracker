@@ -250,56 +250,76 @@ function addEmployee() {
         })
 };
 ////// UPDATE EMPLOYEE //////
-var choiceArray = []; /// employee
-var departmentArray = []; // department
-var roleArray = []; // role
-function updateEmployee() {
+let employeeArray = []; /// employee
+let employeeObjects = []; // emp objects
+let roleArray = []; // role
+populateEmp();
+populateRole();
+function populateEmp() {
+    employeeArray = [];
     connection.query("SELECT * FROM employee", function (err, results) {
         if (err) throw err;
-        // once you have the items, prompt the user for which they'd like to bid on
-        // console.log(results);
-        inquirer
-            .prompt([
-                {
-                    name: "choice",
-                    type: "list",
-                    choices: function () {
-
-                        for (var i = 0; i < results.length; i++) {
-                            var fullName = `${results[i].first_name} ${results[i].last_name}`
-
-                            choiceArray.push(fullName);
-
-                        }
-                        // console.log(choiceArray);
-                        return choiceArray;
-                    }
-                }
-            ])
-            .then(function (answer) {
-                console.log(answer);
-                inquirer
-                    .prompt({
-                        name: "choose",
-                        type: "list",
-                        message: "What would you like to update?",
-                        choices: [
-                            "Employee",
-                            "Role",
-                            "Department",
-                            "exit",
-                            function () {
-                                for (var i = 0; i < answer.length; i++) {
-                                    var fullName = `${answer[i].first_name} ${answer[i].last_name}`
-
-                                    choiceArray.push(fullName);
-
-                                }
-                            }
-                        ]
-                    })
-
-
-            });
+        for (var i = 0; i < results.length; i++) {
+            var fullName = `${results[i].id} ${results[i].first_name} ${results[i].last_name}`
+            employeeArray.push(fullName);
+            employeeObjects.push(results);
+        }
     })
+}
+function populateRole() {
+    roleArray = [];
+    connection.query("SELECT * FROM roleE", function (err, results) {
+        if (err) throw err;
+        for (var i = 0; i < results.length; i++) {
+            var rolesP = `${results[i].id} ${results[i].title}`;
+            roleArray.push(rolesP);
+        }
+    })
+}
+function updateEmployee() {
+
+    inquirer
+        .prompt([
+            {
+                name: "choice",
+                type: "list",
+                choices: employeeArray
+            }
+
+        ])
+        .then(function (answer) {
+            connection.query("SELECT * FROM roleE", function (err, roleList) {
+                if (err) throw err;
+                inquirer
+                    .prompt([
+                        {
+                            name: "firstName",
+                            type: "value",
+                            message: "What is the new First Name?"
+                        },
+                        {
+                            name: "lastName",
+                            type: "value",
+                            message: "What is the new Last Name?"
+                        },
+                        {
+                            name: "Roll",
+                            type: "list",
+                            message: "What is the new Role?",
+                            // THIS NEEDS MORE LOGIC TO GET THE ID FROM THE CHOICE
+                            choices: roleArray
+                        }
+                    ]).then(function (updated) {
+                        let x = parseInt(updated.Roll.split(" ")[0]);
+                        let nameID = parseInt(answer.choice.split(" ")[0]);
+                        var query = `UPDATE employee set first_name="${updated.firstName}",last_name="${updated.lastName}",role_id = ${x} WHERE id=${nameID}`;
+                        connection.query(query, function (err, res) {
+                            if (err) throw err;
+
+                            trackEmployee();
+                        })
+                    })
+            });
+        });
+
 };
